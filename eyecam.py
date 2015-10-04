@@ -13,14 +13,16 @@ eyeCascade = cv2.CascadeClassifier(eyePath)
 videoCapture = cv2.VideoCapture(0)
 videoCapture.set(cv2.CAP_PROP_FPS, 1)
 
-oldFace = (0, 0, 0, 0)
-oldLeftEye = (0, 0, 0, 0)
-oldRightEye = (0, 0, 0, 0)
+
+# Saved information from previous frame
+oldFace = (0, 0, -1, -1)
+oldLeftEye = (0, 0, -1, -1)
+oldRightEye = (0, 0, -1, -1)
 
 
 # Learning rest position (do this for turns 0-(learnPhase - 1))
 turns = 0
-learnPhase = 128
+learnPhase = 64
 
 restFace = (0, 0, -1, -1)
 restLeftEye = (0, 0, -1, -1)
@@ -34,6 +36,7 @@ scrW, scrH = pyautogui.size()        # Screen size
 speed = 16                           # How far to step each read
 pyautogui.moveTo(scrW / 2, scrH / 2) # Mouse starts in middle
 
+
 # Clicking
 lClick = 0
 notlClick = 0.0
@@ -45,11 +48,13 @@ rThreshold = 32
 
 # HitBox calculation... remember that left and right are mirrored!
 def hit(old, new):
+    global restFace, oldFace
+    
     return (
-        1 if old[1] - new[1] >= eyeHitBox else 0,      # Up
-        1 if old[1] - new[1] <= -1 * eyeHitBox else 0, # Down
-        1 if old[0] - new[0] <= -1 * eyeHitBox else 0, # Left
-        1 if old[0] - new[0] >= eyeHitBox else 0       # Right
+        1 if (restFace[1] + old[1]) - (oldFace[1] + new[1]) >= eyeHitBox else 0,      # Up
+        1 if (restFace[1] + old[1]) - (oldFace[1] + new[1]) <= -1 * eyeHitBox else 0, # Down
+        1 if (restFace[0] + old[0]) - (oldFace[0] + new[0]) <= -1 * eyeHitBox else 0, # Left
+        1 if (restFace[0] + old[0]) - (oldFace[0] + new[0]) >= eyeHitBox else 0       # Right
     )
 
 
@@ -79,14 +84,12 @@ def clickMouse(side):
 
 # Averages eye positions to learn resting eye position... side == False is left
 def learnEye(roi_gray, roi_color, side):
-    global restLeftEye
-    global restRightEye
+    global restLeftEye, restRightEye, turns
     
     eyes = eyeCascade.detectMultiScale(
         roi_gray,
         scaleFactor=2.1,
         minSize=(30, 30),
-        maxSize=((oldFace[0]+oldFace[2]) >> 3, (oldFace[1]+oldFace[3]) >> 3),
         flags=cv2.CASCADE_SCALE_IMAGE
     )
     
@@ -95,9 +98,9 @@ def learnEye(roi_gray, roi_color, side):
     
     for (ex, ey, ew, eh) in eyes:
         if side:
-            restRightEye = ((restRightEye[0]+ex)/2, (restRightEye[1]+ey)/2, (restRightEye[2]+ew)/2, (restRightEye[3]+eh)/2)
+            restRightEye = ((restRightEye[0]+ex)/2, (restRightEye[1]+ey)/2, (restRightEye[2]+ew)/2, (restRightEye[3]+eh)/2) if turns > 0 else (ex, ey, ew, eh)
         else:
-            restLeftEye = ((restLeftEye[0]+ex)/2, (restLeftEye[1]+ey)/2, (restLeftEye[2]+ew)/2, (restLeftEye[3]+eh)/2)
+            restLeftEye = ((restLeftEye[0]+ex)/2, (restLeftEye[1]+ey)/2, (restLeftEye[2]+ew)/2, (restLeftEye[3]+eh)/2) if turns > 0 else (ex, ey, ew, eh)
         
         cv2.rectangle(roi_color, (ex, ey), (ex+ew, ey+eh), (255, 0, 0), 2)
     
@@ -108,7 +111,7 @@ def learnEye(roi_gray, roi_color, side):
 def getEye(roi_gray, roi_color, side):
     global oldLeftEye, restLeftEye
     global oldRightEye, restRightEye
-    global restFace
+    global oldFace, restFace
     global move, lClick, rClick
     
     eyes = eyeCascade.detectMultiScale(
@@ -135,11 +138,13 @@ def getEye(roi_gray, roi_color, side):
     
     for (ex, ey, ew, eh) in eyes:
         if side:
+            move = hit(restRightEye, (ex, ey, ew, eh))
             oldRightEye = (ex, ey, ew, eh) if oldRightEye[2] == -1 or move[0] or move[1] or move[2] or move[3] else oldRightEye
+            restRightEye = ((restRightEye[0]+ex)/2, (restRightEye[1]+ey)/2, (restRightEye[2]+ew)/2, (restRightEye[3]+eh)/2)
             cv2.rectangle(roi_color, (oldRightEye[0], oldRightEye[1]), (oldRightEye[0]+oldRightEye[2], oldRightEye[1]+oldRightEye[3]), (255, 0, 0), 2)
         else:
-            move = hit(restLeftEye, (ex, ey, ew, eh))
             oldLeftEye = (ex, ey, ew, eh) if oldLeftEye[2] == -1 or move[0] or move[1] or move[2] or move[3] else oldLeftEye
+            restLeftEye = ((restLeftEye[0]+ex)/2, (restLeftEye[1]+ey)/2, (restLeftEye[2]+ew)/2, (restLeftEye[3]+eh)/2)
             cv2.rectangle(roi_color, (oldLeftEye[0], oldLeftEye[1]), (oldLeftEye[0]+oldLeftEye[2], oldLeftEye[1]+oldLeftEye[3]), (255, 0, 0), 2)
     
     return True
@@ -163,7 +168,7 @@ while True:
         if len(faces) == 1:
             # Green box around faces
             for (x, y, w, h) in faces:
-                restFace = ((restFace[0]+x)/2, (restFace[1]+y)/2, (restFace[2]+w)/2, (restFace[3]+h)/2)
+                restFace = ((restFace[0]+x)/2, (restFace[1]+y)/2, (restFace[2]+w)/2, (restFace[3]+h)/2) if turns > 0 else (x, y, w, h)
                 cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
                 
                 # Only count turns if both eyes are visible
@@ -181,7 +186,7 @@ while True:
             print restLeftEye
             print restRightEye
     
-    else: # Input mode
+    else: # Input mode, but continue learning
         if len(faces) != 1:
             oldFace = (0, 0, -1, -1)
         else:
@@ -215,6 +220,8 @@ while True:
                 if move[0] or move[1] or move[2] or move[3]:
                     moveMouse()
                     print move
+                else:
+                    print "stay"
                 
                 # Resolve clicks
                 if notlClick > 0 and lClick > lThreshold and lClick / notlClick > .5:
