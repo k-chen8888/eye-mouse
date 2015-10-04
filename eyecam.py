@@ -51,8 +51,8 @@ def hit(old, new):
     global restFace, oldFace
     
     return (
-        1 if (restFace[1] + old[1]) - (oldFace[1] + new[1]) >= eyeHitBox else 0,      # Up
-        1 if (restFace[1] + old[1]) - (oldFace[1] + new[1]) <= -1 * eyeHitBox else 0, # Down
+        1 if (restFace[1] + old[1]) - (oldFace[1] + new[1]) <= -1 * eyeHitBox else 0, # Up
+        1 if (restFace[1] + old[1]) - (oldFace[1] + new[1]) >= eyeHitBox else 0,      # Down
         1 if (restFace[0] + old[0]) - (oldFace[0] + new[0]) <= -1 * eyeHitBox else 0, # Left
         1 if (restFace[0] + old[0]) - (oldFace[0] + new[0]) >= eyeHitBox else 0       # Right
     )
