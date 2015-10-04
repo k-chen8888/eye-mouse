@@ -45,7 +45,12 @@ rThreshold = 32
 
 # HitBox calculation... remember that left and right are mirrored!
 def hit(old, new):
-    return (1 if old[1] - new[1] >= eyeHitBox else 0, 1 if old[1] - new[1] <= -1 * eyeHitBox else 0, 1 if old[0] - new[0] <= -1 * eyeHitBox else 0, 1 if old[0] - new[0] >= eyeHitBox else 0)
+    return (
+        1 if old[1] - new[1] >= eyeHitBox else 0,      # Up
+        1 if old[1] - new[1] <= -1 * eyeHitBox else 0, # Down
+        1 if old[0] - new[0] <= -1 * eyeHitBox else 0, # Left
+        1 if old[0] - new[0] >= eyeHitBox else 0       # Right
+    )
 
 
 # Movement calculation
@@ -72,7 +77,7 @@ def clickMouse(side):
         pyautogui.click(button='left')
 
 
-# Averages eye positions to learn resting eye position
+# Averages eye positions to learn resting eye position... side == False is left
 def learnEye(roi_gray, roi_color, side):
     global restLeftEye
     global restRightEye
@@ -99,10 +104,11 @@ def learnEye(roi_gray, roi_color, side):
     return True
 
 
-# Gets an eye from the image and draws it; side == False is left
+# Gets an eye from the image and draws it... side == False is left
 def getEye(roi_gray, roi_color, side):
     global oldLeftEye, restLeftEye
     global oldRightEye, restRightEye
+    global restFace
     global move, lClick, rClick
     
     eyes = eyeCascade.detectMultiScale(
@@ -115,9 +121,9 @@ def getEye(roi_gray, roi_color, side):
     
     # Resting eye position
     if side:
-        cv2.rectangle(roi_color, (restRightEye[0], restRightEye[1]), (restRightEye[0]+restRightEye[2], restRightEye[1]+restRightEye[3]), (0, 0, 255), 2)
+        cv2.rectangle(frame[restFace[1]:restFace[1]+(restFace[3]>>1), restFace[0]+(restFace[2]>>1):restFace[0]+restFace[2]], (restRightEye[0], restRightEye[1]), (restRightEye[0]+restRightEye[2], restRightEye[1]+restRightEye[3]), (0, 0, 255), 2)
     else:
-        cv2.rectangle(roi_color, (restLeftEye[0], restLeftEye[1]), (restLeftEye[0]+restLeftEye[2], restLeftEye[1]+restLeftEye[3]), (0, 0, 255), 2)
+        cv2.rectangle(frame[restFace[1]:restFace[1]+(restFace[3]>>1), restFace[0]:restFace[0]+(restFace[2]>>1)], (restLeftEye[0], restLeftEye[1]), (restLeftEye[0]+restLeftEye[2], restLeftEye[1]+restLeftEye[3]), (0, 0, 255), 2)
     
     if len(eyes) != 1:
         if side and rClick < 8:
@@ -129,11 +135,10 @@ def getEye(roi_gray, roi_color, side):
     
     for (ex, ey, ew, eh) in eyes:
         if side:
-            move = hit((ex, ey, ew, eh), restRightEye)
             oldRightEye = (ex, ey, ew, eh) if oldRightEye[2] == -1 or move[0] or move[1] or move[2] or move[3] else oldRightEye
             cv2.rectangle(roi_color, (oldRightEye[0], oldRightEye[1]), (oldRightEye[0]+oldRightEye[2], oldRightEye[1]+oldRightEye[3]), (255, 0, 0), 2)
         else:
-            move = hit((ex, ey, ew, eh), restLeftEye)
+            move = hit(restLeftEye, (ex, ey, ew, eh))
             oldLeftEye = (ex, ey, ew, eh) if oldLeftEye[2] == -1 or move[0] or move[1] or move[2] or move[3] else oldLeftEye
             cv2.rectangle(roi_color, (oldLeftEye[0], oldLeftEye[1]), (oldLeftEye[0]+oldLeftEye[2], oldLeftEye[1]+oldLeftEye[3]), (255, 0, 0), 2)
     
