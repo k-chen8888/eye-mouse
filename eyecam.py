@@ -212,8 +212,8 @@ while True:
                     notrClick += 1.0
                 
                 # Resolve movement
-                moveMouse()
                 if move[0] or move[1] or move[2] or move[3]:
+                    moveMouse()
                     print move
                 
                 # Resolve clicks
