@@ -1,4 +1,4 @@
-import cv2, sys
+import cv2, sys, pyautogui
 
 
 # Setup
@@ -17,9 +17,14 @@ oldFace = (0, 0, -1, -1)
 oldLeftEye = (0, 0, -1, -1)
 oldRightEye = (0, 0, -1, -1)
 
-eyeHitBox = 16 # If the box reaches this far, move it
-move = (0, 0, 0, 0) # Up, Down, Left, Right
+# Moving
+eyeHitBox = 16                       # If the box reaches this far, move it
+move = (0, 0, 0, 0)                  # Up, Down, Left, Right
+scrW, scrH = pyautogui.size()        # Screen size
+speed = 8                            # How far to step each read
+pyautogui.moveTo(scrW / 2, scrH / 2) # Mouse starts in middle
 
+# Clicking
 lClick = 0
 notlClick = 0.0
 lThreshold = 32
@@ -31,6 +36,30 @@ rThreshold = 32
 # HitBox calculation... remember that left and right are mirrored!
 def hit(old, new):
     return (1 if old[1] - new[1] >= eyeHitBox else 0, 1 if old[1] - new[1] <= -1 * eyeHitBox else 0, 1 if old[0] - new[0] <= -1 * eyeHitBox else 0, 1 if old[0] - new[0] >= eyeHitBox else 0)
+
+
+# Movement calculation
+def moveMouse():
+    global move
+    
+    mouseX, mouseY = pyautogui.position()
+    
+    if move[0]:
+        pyautogui.moveTo(mouseX, mouseY + speed)
+    if move[1]:
+        pyautogui.moveTo(mouseX, mouseY - speed)
+    if move[2]:
+        pyautogui.moveTo(mouseX - speed, mouseY)
+    if move[3]:
+        pyautogui.moveTo(mouseX + speed, mouseY)
+
+
+# Fire a click... side == False is left
+def clickMouse(side):
+    if side:
+        pyautogui.click(button='right')
+    else:
+        pyautogui.click(button='left')
 
 
 # Gets an eye from the image and draws it; side == False is left
@@ -103,13 +132,15 @@ while True:
             elif notrClick > 0.0:
                 notrClick += 1.0
             
-            # Resolve movement    
+            # Resolve movement
+            moveMouse()
             if move[0] or move[1] or move[2] or move[3]:
                 print move
             
             # Resolve clicks
             if notlClick > 0 and lClick > lThreshold and lClick / notlClick > .5:
                 print "single left click"
+                clickMouse(False)
                 lClick = 0
                 notlClick = 0
                 lThreshold = 16
@@ -118,6 +149,7 @@ while True:
                 lThreshold = 16
             if notrClick > 0 and rClick > rThreshold and rClick / notrClick > .5:
                 print "single right click"
+                clickMouse(True)
                 rClick = 0
                 notrClick = 0
                 rThreshold = 16
